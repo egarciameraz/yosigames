@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pink Firework Splash</title>
+    <title>Yoselin Continuous Falling Fireworks</title>
     <style>
         /* Basic page setup */
         html, body {
@@ -15,129 +15,51 @@
             background-color: #000;
             color: #fff;
             font-family: Arial, sans-serif;
-            
-            /* Cursors and touch feedback */
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent; /* Removes blue flash on tap */
+            cursor: pointer; /* Indicate it's interactive */
+            -webkit-tap-highlight-color: transparent; 
         }
 
-        /* Initial prompt text */
-        #prompt {
+        /* Message to guide the user */
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             color: #444;
             text-align: center;
-            margin-top: 45vh;
-            font-size: 1.2rem;
-            user-select: none; /* Prevents text selection */
-            animation: fadeIn 2s ease-in-out;
-            /* Make sure prompt doesn't block clicks */
+            font-size: 1.5rem;
+            user-select: none;
             pointer-events: none; 
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            transition: opacity 0.5s ease-in-out;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
 
-        /* --- RECTANGLE SAVE BUTTON STYLES --- */
-        #save-container {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-        }
-
-        /* Rectangle Button Base */
-        #saveButton {
-            position: relative;
-            width: 160px; /* Rectangle width */
-            height: 48px; /* Rectangle height */
-            background-color: #FF1493; /* Deep Pink background */
-            border: 2px solid white;
-            border-radius: 8px; /* Rounded corners */
-            cursor: pointer;
-            padding: 0;
-            outline: none;
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex; 
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-        }
-
-        /* Text styling */
-        #saveButton span {
-            color: white;
-            font-size: 1rem;
-            font-weight: bold;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        }
-
-        #saveButton:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(255, 20, 147, 0.9); /* Pink glow on hover */
-        }
-        
-        /* Remove heart pseudo-elements if they were used */
-        #saveButton::before,
-        #saveButton::after {
-            content: none;
-        }
-        /* --- END RECTANGLE SAVE BUTTON STYLES --- */
-
-
-        /* Styling for the permanent color splash (40px, half size) */
-        .color-splash {
-            position: absolute; 
-            width: 40px; 
-            height: 40px;
-            border-radius: 50%; /* Makes it circular */
-            background-color: var(--splash-color); /* Color set by JS */
-            opacity: 0; /* Start hidden */
-            transform: translate(-50%, -50%) scale(0.1); /* Start small and centered */
-            animation: splashIn 1s ease-out forwards;
-            user-select: none; 
-            pointer-events: none; 
-            mix-blend-mode: screen; /* Makes colors blend nicely on black background */
-        }
-        
-        /* Animation for the splash to grow and fade in */
-        @keyframes splashIn {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(0.1);
-            }
-            50% {
-                opacity: 0.6; /* Max opacity */
-                transform: translate(-50%, -50%) scale(1.2); /* Slight overshoot */
-            }
-            100% {
-                opacity: 0.4; /* Final opacity, slightly transparent */
-                transform: translate(-50%, -50%) scale(1);
-            }
-        }
-
-        /* Styling for each particle (The Firework Burst) */
+        /* Styling for each letter particle */
         .particle {
             position: absolute; 
-            font-size: 1.5rem; 
+            font-size: 2rem; 
             font-weight: bold;
             user-select: none; 
             pointer-events: none; 
             
-            /* The burst animation */
-            animation: burst 1.0s ease-out forwards;
+            /* The burst and falling animation is 1.0s */
+            animation: burst 1.0s ease-in forwards; 
         }
 
-        /* This animation makes the particle burst outwards */
+        /* * The animation combines initial random spread (tx/ty) 
+         * with a fixed, strong downward movement (the +800px drop)
+        */
         @keyframes burst {
             0% {
+                /* Start at click origin */
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
             }
             100% {
-                /* Use CSS variables set by JS for the final random position */
-                transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50%)) scale(0);
+                /* * Spread horizontally (tx), spread vertically (ty), 
+                 * AND add a strong fixed drop (+800px) to simulate gravity.
+                */
+                transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50% + 800px)) scale(0.5);
                 opacity: 0;
             }
         }
@@ -145,205 +67,141 @@
 </head>
 <body>
 
-    <p id="prompt">Tap and drag or click and hold to paint with pink firework splashes!</p>
-
-    <div id="save-container">
-        <button id="saveButton" title="Save Drawing">
-            <span>SAVE DRAWING</span>
-        </button>
-    </div>
+    <div id="message">Click and hold (or tap and drag) to spew the current letter!</div>
 
     <script>
         // --- Setup ---
-        const targetWord = "Yoselin"; 
+        const targetWord = "Yoselin";
         let letterIndex = 0; 
 
-        const particleCount = 20; 
-        const burstRadius = 160;   
+        const particleCount = 30; 
+        const burstRadius = 200;  
+        const spewDelay = 50; // Milliseconds between each spew (higher is slower)
 
-        // Pinkish colors only!
+        // State for continuous spewing
+        let spewInterval = null;
+        let spewX = 0;
+        let spewY = 0;
+
+        // A wider range of bright, colorful firework-like colors
         const colors = [
-            '#FFC0CB', // Pink
+            '#FFD700', // Gold
             '#FF69B4', // Hot Pink
-            '#FF1493', // Deep Pink
-            '#DA70D6', // Orchid
-            '#EE82EE', // Violet
-            '#C71585', // Medium Violet Red
-            '#DB7093'  // Pale Violet Red
+            '#00FFFF', // Cyan
+            '#7FFF00', // Chartreuse
+            '#FF4500', // Orange-Red
+            '#FFFFFF', // White
+            '#9400D3', // Dark Violet
+            '#ADFF2F', // GreenYellow
+            '#FFA07A', // LightSalmon
+            '#1E90FF'  // DodgerBlue
         ];
 
-        let firstClick = true;
-        const promptEl = document.getElementById('prompt');
-
-        // --- Dragging State and Throttling ---
-        let isDrawing = false;
-        let lastEffectTime = 0;
-        const throttleDelay = 50; 
-        
-        /**
-         * Converts hex color string to an RGBA object for canvas drawing.
-         * @param {string} hex - The hex color (e.g., #FF1493)
-         * @param {number} alpha - The opacity (0.0 to 1.0)
-         * @returns {string} RGBA color string
-         */
-        function hexToRgba(hex, alpha) {
-            const r = parseInt(hex.substring(1, 3), 16);
-            const g = parseInt(hex.substring(3, 5), 16);
-            const b = parseInt(hex.substring(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
+        const messageEl = document.getElementById('message');
+        let firstInteraction = true;
 
         /**
-         * Main function to create a firework burst and a color splash
+         * Main function to create a firework burst at the tracked spew position.
+         * Note: This function no longer increments letterIndex.
          */
-        function createEffect(x, y) {
-            if (firstClick) {
-                promptEl.style.display = 'none';
-                firstClick = false;
-            }
+        function createBurst(x, y) {
+            // Get the current letter and color based on the current index
+            const currentLetter = targetWord[letterIndex];
+            const currentColor = colors[letterIndex % colors.length]; // Use index for consistent color during spew
 
-            const currentLetter = targetWord[letterIndex]; 
-            const currentColor = colors[Math.floor(Math.random() * colors.length)]; 
-
-            // --- 1. Create the PERMANENT color splash ---
-            const splash = document.createElement('div');
-            splash.className = 'color-splash';
-            // Set the color as a CSS variable for the mix-blend-mode to work correctly
-            splash.style.setProperty('--splash-color', currentColor); 
-            splash.style.left = `${x}px`;
-            splash.style.top = `${y}px`;
-            document.body.appendChild(splash);
-            
-            // --- 2. Create the TEMPORARY burst of particles (The Firework) ---
             for (let i = 0; i < particleCount; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
-                particle.textContent = currentLetter; 
+                particle.textContent = currentLetter;
                 particle.style.color = currentColor;
 
+                // Set the starting position
                 particle.style.left = `${x}px`;
                 particle.style.top = `${y}px`;
 
-                // Calculate a random destination for the particle
+                // Calculate random destination
                 const angle = Math.random() * Math.PI * 2; 
                 const radius = Math.random() * burstRadius; 
+                
                 const tx = Math.cos(angle) * radius;
                 const ty = Math.sin(angle) * radius;
 
+                // Set the CSS variables for the animation
                 particle.style.setProperty('--tx', `${tx}px`);
                 particle.style.setProperty('--ty', `${ty}px`);
 
+                document.body.appendChild(particle);
+
+                // Clean up: remove the particle after its animation ends
                 particle.addEventListener('animationend', () => {
                     particle.remove();
                 });
-                
-                document.body.appendChild(particle);
+            }
+        }
+        
+        // --- Event Handlers for Continuous Spewing ---
+
+        /**
+         * Starts the continuous spewing animation loop.
+         */
+        function startSpewing(x, y) {
+            if (spewInterval !== null) return; // Already spewing
+
+            if (firstInteraction) {
+                messageEl.style.opacity = 0; 
+                firstInteraction = false;
             }
 
+            // Set initial position
+            spewX = x;
+            spewY = y;
+
+            // Start the interval that continuously calls createBurst
+            spewInterval = setInterval(() => {
+                // The burst is created at the currently tracked spewX/spewY
+                createBurst(spewX, spewY);
+            }, spewDelay);
+
+            document.body.style.cursor = 'crosshair'; // Visual feedback for drawing
+        }
+
+        /**
+         * Stops the spewing animation loop and advances to the next letter.
+         */
+        function stopSpewing() {
+            if (spewInterval === null) return;
+
+            clearInterval(spewInterval);
+            spewInterval = null;
+
+            // Advance to the next letter/color only when the user releases
             letterIndex = (letterIndex + 1) % targetWord.length;
+            
+            document.body.style.cursor = 'pointer'; 
         }
 
-        // --- Save Functionality ---
-        const saveButton = document.getElementById('saveButton');
-        
-        function saveDrawing() {
-            const splashes = document.querySelectorAll('.color-splash');
-            
-            // If no splashes exist, do nothing
-            if (splashes.length === 0) {
-                console.log("Nothing to save! Make a drawing first.");
-                return;
-            }
-
-            // Create a temporary canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            const ctx = canvas.getContext('2d');
-
-            // 1. Draw the black background
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Draw each splash onto the canvas
-            splashes.forEach(splash => {
-                // Get position (convert 'px' string to number)
-                const x = parseFloat(splash.style.left);
-                const y = parseFloat(splash.style.top);
-                
-                // Get color (read from the CSS variable)
-                const color = splash.style.getPropertyValue('--splash-color');
-                
-                // Splash size is 40px width/height, so radius is 20px
-                const radius = 20; 
-                // Final opacity from splashIn keyframes is 0.4
-                const opacity = 0.4; 
-                
-                ctx.beginPath();
-                
-                // Set context style using RGBA for proper transparency
-                ctx.fillStyle = hexToRgba(color, opacity);
-
-                // Draw the circle (centered)
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // 3. Convert to PNG and trigger download
-            const imageURL = canvas.toDataURL('image/png');
-            
-            const a = document.createElement('a');
-            a.href = imageURL;
-            a.download = `pink_splash_drawing_${Date.now()}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            console.log(`Drawing saved successfully as ${a.download}`);
-        }
-
-        saveButton.addEventListener('click', (e) => {
-            // Prevent the save button click from triggering a drawing effect
-            e.stopPropagation(); 
-            
-            // Provide visual feedback (down-scale the button)
-            saveButton.style.transform = 'scale(0.9)';
-            
-            // Perform save and revert button scale after a brief delay
-            setTimeout(() => {
-                saveDrawing();
-                saveButton.style.transform = 'scale(1)';
-            }, 100);
-        });
-        // --- End Save Functionality ---
-
-
-        // --- Event Listeners for Drawing ---
-        
+        // 1. POINTER DOWN (Start Spewing)
         document.addEventListener('pointerdown', (e) => {
-            // Check if the click is on the document body and not the save button
-            if (e.isPrimary && e.target.id !== 'saveButton' && e.target.parentElement.id !== 'save-container') {
-                isDrawing = true;
-                // Capture the pointer to ensure moves are tracked smoothly
-                document.body.setPointerCapture(e.pointerId); 
-                createEffect(e.clientX, e.clientY);
+            if (e.isPrimary) {
+                document.body.setPointerCapture(e.pointerId); // Capture pointer for smooth dragging
+                startSpewing(e.clientX, e.clientY);
             }
         });
 
+        // 2. POINTER MOVE (Update Spewing Position)
         document.addEventListener('pointermove', (e) => {
-            if (isDrawing && e.isPrimary) {
-                const currentTime = Date.now();
-                if (currentTime - lastEffectTime > throttleDelay) {
-                    createEffect(e.clientX, e.clientY);
-                    lastEffectTime = currentTime;
-                }
+            if (spewInterval !== null && e.isPrimary) {
+                // Update the tracked spew position so the bursts follow the pointer
+                spewX = e.clientX;
+                spewY = e.clientY;
             }
         });
 
+        // 3. POINTER UP (Stop Spewing and Advance Letter)
         document.addEventListener('pointerup', (e) => {
             if (e.isPrimary) {
-                isDrawing = false;
                 document.body.releasePointerCapture(e.pointerId);
+                stopSpewing();
             }
         });
 
