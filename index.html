@@ -11,10 +11,14 @@
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevents scrollbars from appearing */
+            overflow: hidden; /* Prevents scrollbars */
             background-color: #000;
             color: #fff;
             font-family: Arial, sans-serif;
+            
+            /* Cursors and touch feedback */
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent; /* Removes blue flash on tap */
         }
 
         /* Initial prompt text */
@@ -25,6 +29,8 @@
             font-size: 1.2rem;
             user-select: none; /* Prevents text selection */
             animation: fadeIn 2s ease-in-out;
+            /* Make sure prompt doesn't block clicks */
+            pointer-events: none; 
         }
         
         @keyframes fadeIn {
@@ -32,36 +38,57 @@
             to { opacity: 1; }
         }
 
-        /* Styling for each letter particle */
-        .particle {
-            position: absolute; /* Allows precise placement */
-            font-size: 1.5rem;
-            font-weight: bold;
-            user-select: none; /* Prevents particles from being selected */
-            pointer-events: none; /* Allows clicking "through" particles */
-            
-            /* The animation 'burst' runs for 1.2 seconds, uses an 'ease-out' timing,
-              and 'forwards' means it stays at its end-state (invisible) when done.
-            */
-            animation: burst 1.2s ease-out forwards;
+        /* Styling for the permanent color splash */
+        .color-splash {
+            position: absolute; 
+            width: 80px; /* Size of the splash */
+            height: 80px;
+            border-radius: 50%; /* Makes it circular */
+            background-color: var(--splash-color); /* Color set by JS */
+            opacity: 0; /* Start hidden */
+            transform: translate(-50%, -50%) scale(0.1); /* Start small and centered */
+            animation: splashIn 1s ease-out forwards;
+            user-select: none; 
+            pointer-events: none; 
+            mix-blend-mode: screen; /* Makes colors blend nicely on black background */
+        }
+        
+        /* Animation for the splash to grow and fade in */
+        @keyframes splashIn {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.1);
+            }
+            50% {
+                opacity: 0.6; /* Max opacity */
+                transform: translate(-50%, -50%) scale(1.2); /* Slight overshoot */
+            }
+            100% {
+                opacity: 0.4; /* Final opacity, slightly transparent */
+                transform: translate(-50%, -50%) scale(1);
+            }
         }
 
-        /* The animation keyframes.
-           We use CSS variables (--tx, --ty) which will be set by JavaScript
-           to give each particle a unique final destination.
-        */
+        /* Styling for each particle (The Firework Burst) */
+        .particle {
+            position: absolute; 
+            font-size: 1.2rem; /* Letter size if we were still using them */
+            font-weight: bold;
+            user-select: none; 
+            pointer-events: none; 
+            
+            /* The burst animation */
+            animation: burst 1.0s ease-out forwards;
+        }
+
+        /* This animation makes the particle burst outwards */
         @keyframes burst {
             0% {
-                /* Start centered on the cursor, full size, full opacity.
-                  translate(-50%, -50%) centers the *letter* on the click point.
-                */
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
             }
             100% {
-                /* Move to the final random position (var(--tx), var(--ty)),
-                  scale down to nothing, and fade out completely.
-                */
+                /* Use CSS variables set by JS for the final random position */
                 transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50%)) scale(0);
                 opacity: 0;
             }
@@ -70,96 +97,93 @@
 </head>
 <body>
 
-    <p id="prompt">Click or tap anywhere</p>
+    <p id="prompt">Tap or click to create pink splashes!</p>
 
     <script>
         // --- Setup ---
-        const targetWord = "Yoselin";
-        let wordIndex = 0;
-        const particleCount = 30; // How many particles per burst
-        const burstRadius = 150;  // How far the particles fly (in pixels)
-        
-        // Bright, "firework-like" colors
+        const targetWord = "Yoselin"; // Still used for particles, but not for forming a word
+        let letterIndex = 0; // Tracks which letter of "Yoselin" to use for burst particles
+
+        const particleCount = 20; // How many particles per burst
+        const burstRadius = 80;   // How far the particles fly (in pixels)
+
+        // Pinkish colors only!
         const colors = [
-            '#FFD700', // Gold
+            '#FFC0CB', // Pink
             '#FF69B4', // Hot Pink
-            '#00FFFF', // Cyan
-            '#7FFF00', // Chartreuse
-            '#FF4500', // Orange-Red
-            '#FFFFFF', // White
-            '#9400D3'  // Dark Violet
+            '#FF1493', // Deep Pink
+            '#DA70D6', // Orchid
+            '#EE82EE', // Violet
+            '#C71585', // Medium Violet Red
+            '#DB7093'  // Pale Violet Red
         ];
 
-        // Hide the prompt text after the first click
         let firstClick = true;
-
+        const promptEl = document.getElementById('prompt');
+        
         /**
-         * Main function to create a burst of letter particles
-         * @param {number} x - The horizontal coordinate of the click/touch
-         * @param {number} y - The vertical coordinate of the click/touch
+         * Main function to create a firework burst and a color splash
+         * @param {number} x - The horizontal coordinate of the click/tap
+         * @param {number} y - The vertical coordinate of the click/tap
          */
-        function createBurst(x, y) {
+        function createEffect(x, y) {
             // Hide the prompt on the first interaction
             if (firstClick) {
-                document.getElementById('prompt').style.display = 'none';
+                promptEl.style.display = 'none';
                 firstClick = false;
             }
 
-            // Get the current letter and its corresponding color
-            const currentLetter = targetWord[wordIndex];
-            const currentColor = colors[wordIndex % colors.length];
+            const currentLetter = targetWord[letterIndex]; // For burst particles
+            const currentColor = colors[Math.floor(Math.random() * colors.length)]; // Random pinkish color
 
-            // Create the specified number of particles
+            // --- 1. Create the PERMANENT color splash ---
+            const splash = document.createElement('div');
+            splash.className = 'color-splash';
+            splash.style.setProperty('--splash-color', currentColor); // Set CSS variable for color
+            splash.style.left = `${x}px`;
+            splash.style.top = `${y}px`;
+            document.body.appendChild(splash);
+            
+            // --- 2. Create the TEMPORARY burst of particles (The Firework) ---
             for (let i = 0; i < particleCount; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
-                particle.textContent = currentLetter;
+                particle.textContent = currentLetter; // Still use letters for the burst
                 particle.style.color = currentColor;
 
-                // Set the starting position to the click coordinates
+                // Set the starting position to the click coordinate
                 particle.style.left = `${x}px`;
                 particle.style.top = `${y}px`;
 
-                // --- Calculate random destination ---
-                
-                // Random angle in a full circle
+                // Calculate a random destination for the particle
                 const angle = Math.random() * Math.PI * 2; 
-                // Random distance up to the burstRadius
                 const radius = Math.random() * burstRadius; 
-
-                // Calculate the final x and y offset
                 const tx = Math.cos(angle) * radius;
                 const ty = Math.sin(angle) * radius;
 
-                // Set the CSS variables for the animation
+                // Set the CSS variables for this particle's animation
                 particle.style.setProperty('--tx', `${tx}px`);
                 particle.style.setProperty('--ty', `${ty}px`);
-
-                // Add the particle to the page
-                document.body.appendChild(particle);
 
                 // Clean up: remove the particle after its animation ends
                 particle.addEventListener('animationend', () => {
                     particle.remove();
                 });
+                
+                document.body.appendChild(particle);
             }
 
-            // Move to the next letter for the next click
-            wordIndex = (wordIndex + 1) % targetWord.length;
+            // Move to the next letter for the next burst
+            letterIndex = (letterIndex + 1) % targetWord.length;
         }
 
-        // --- Event Listeners ---
-
-        // Listen for desktop mouse clicks
-        document.addEventListener('click', (e) => {
-            createBurst(e.clientX, e.clientY);
-        });
-
-        // Listen for mobile touch starts
-        document.addEventListener('touchstart', (e) => {
-            // preventDefault stops the browser from *also* firing a 'click' event
-            e.preventDefault(); 
-            createBurst(e.touches[0].clientX, e.touches[0].clientY);
+        // --- Event Listener ---
+        
+        // Use 'pointerup' as a universal event for mouse clicks and touch taps.
+        document.addEventListener('pointerup', (e) => {
+            if (e.isPrimary) {
+                createEffect(e.clientX, e.clientY);
+            }
         });
 
     </script>
