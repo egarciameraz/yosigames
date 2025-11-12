@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Yoselin</title>
+    <style>
+        /* Basic page setup */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrollbars from appearing */
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Initial prompt text */
+        #prompt {
+            color: #444;
+            text-align: center;
+            margin-top: 45vh;
+            font-size: 1.2rem;
+            user-select: none; /* Prevents text selection */
+            animation: fadeIn 2s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Styling for each letter particle */
+        .particle {
+            position: absolute; /* Allows precise placement */
+            font-size: 1.5rem;
+            font-weight: bold;
+            user-select: none; /* Prevents particles from being selected */
+            pointer-events: none; /* Allows clicking "through" particles */
+            
+            /* The animation 'burst' runs for 1.2 seconds, uses an 'ease-out' timing,
+              and 'forwards' means it stays at its end-state (invisible) when done.
+            */
+            animation: burst 1.2s ease-out forwards;
+        }
+
+        /* The animation keyframes.
+           We use CSS variables (--tx, --ty) which will be set by JavaScript
+           to give each particle a unique final destination.
+        */
+        @keyframes burst {
+            0% {
+                /* Start centered on the cursor, full size, full opacity.
+                  translate(-50%, -50%) centers the *letter* on the click point.
+                */
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                /* Move to the final random position (var(--tx), var(--ty)),
+                  scale down to nothing, and fade out completely.
+                */
+                transform: translate(calc(var(--tx) - 50%), calc(var(--ty) - 50%)) scale(0);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <p id="prompt">Click or tap anywhere</p>
+
+    <script>
+        // --- Setup ---
+        const targetWord = "Yoselin";
+        let wordIndex = 0;
+        const particleCount = 30; // How many particles per burst
+        const burstRadius = 150;  // How far the particles fly (in pixels)
+        
+        // Bright, "firework-like" colors
+        const colors = [
+            '#FFD700', // Gold
+            '#FF69B4', // Hot Pink
+            '#00FFFF', // Cyan
+            '#7FFF00', // Chartreuse
+            '#FF4500', // Orange-Red
+            '#FFFFFF', // White
+            '#9400D3'  // Dark Violet
+        ];
+
+        // Hide the prompt text after the first click
+        let firstClick = true;
+
+        /**
+         * Main function to create a burst of letter particles
+         * @param {number} x - The horizontal coordinate of the click/touch
+         * @param {number} y - The vertical coordinate of the click/touch
+         */
+        function createBurst(x, y) {
+            // Hide the prompt on the first interaction
+            if (firstClick) {
+                document.getElementById('prompt').style.display = 'none';
+                firstClick = false;
+            }
+
+            // Get the current letter and its corresponding color
+            const currentLetter = targetWord[wordIndex];
+            const currentColor = colors[wordIndex % colors.length];
+
+            // Create the specified number of particles
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.textContent = currentLetter;
+                particle.style.color = currentColor;
+
+                // Set the starting position to the click coordinates
+                particle.style.left = `${x}px`;
+                particle.style.top = `${y}px`;
+
+                // --- Calculate random destination ---
+                
+                // Random angle in a full circle
+                const angle = Math.random() * Math.PI * 2; 
+                // Random distance up to the burstRadius
+                const radius = Math.random() * burstRadius; 
+
+                // Calculate the final x and y offset
+                const tx = Math.cos(angle) * radius;
+                const ty = Math.sin(angle) * radius;
+
+                // Set the CSS variables for the animation
+                particle.style.setProperty('--tx', `${tx}px`);
+                particle.style.setProperty('--ty', `${ty}px`);
+
+                // Add the particle to the page
+                document.body.appendChild(particle);
+
+                // Clean up: remove the particle after its animation ends
+                particle.addEventListener('animationend', () => {
+                    particle.remove();
+                });
+            }
+
+            // Move to the next letter for the next click
+            wordIndex = (wordIndex + 1) % targetWord.length;
+        }
+
+        // --- Event Listeners ---
+
+        // Listen for desktop mouse clicks
+        document.addEventListener('click', (e) => {
+            createBurst(e.clientX, e.clientY);
+        });
+
+        // Listen for mobile touch starts
+        document.addEventListener('touchstart', (e) => {
+            // preventDefault stops the browser from *also* firing a 'click' event
+            e.preventDefault(); 
+            createBurst(e.touches[0].clientX, e.touches[0].clientY);
+        });
+
+    </script>
+</body>
+</html>
