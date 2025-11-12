@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>For Yoselin</title>
+    <title>Pink Firework Splash</title>
     <style>
         /* Basic page setup */
         html, body {
@@ -38,11 +38,11 @@
             to { opacity: 1; }
         }
 
-        /* Styling for the permanent color splash */
+        /* Styling for the permanent color splash (now 40px, half size) */
         .color-splash {
             position: absolute; 
-            width: 80px; /* Size of the splash */
-            height: 80px;
+            width: 40px; 
+            height: 40px;
             border-radius: 50%; /* Makes it circular */
             background-color: var(--splash-color); /* Color set by JS */
             opacity: 0; /* Start hidden */
@@ -72,7 +72,7 @@
         /* Styling for each particle (The Firework Burst) */
         .particle {
             position: absolute; 
-            font-size: 1.2rem; /* Letter size if we were still using them */
+            font-size: 1.5rem; /* Slightly larger font for the bigger burst */
             font-weight: bold;
             user-select: none; 
             pointer-events: none; 
@@ -97,7 +97,7 @@
 </head>
 <body>
 
-    <p id="prompt">Tap or click to create pink splashes!</p>
+    <p id="prompt">Tap and drag or click and hold to paint with pink firework splashes!</p>
 
     <script>
         // --- Setup ---
@@ -105,7 +105,8 @@
         let letterIndex = 0; // Tracks which letter of "Yoselin" to use for burst particles
 
         const particleCount = 20; // How many particles per burst
-        const burstRadius = 80;   // How far the particles fly (in pixels)
+        // Burst radius doubled from 80 to 160
+        const burstRadius = 160;   
 
         // Pinkish colors only!
         const colors = [
@@ -120,6 +121,11 @@
 
         let firstClick = true;
         const promptEl = document.getElementById('prompt');
+
+        // --- Dragging State and Throttling ---
+        let isDrawing = false;
+        let lastEffectTime = 0;
+        const throttleDelay = 50; // Milliseconds between effects during drag (20 effects per second max)
         
         /**
          * Main function to create a firework burst and a color splash
@@ -177,12 +183,36 @@
             letterIndex = (letterIndex + 1) % targetWord.length;
         }
 
-        // --- Event Listener ---
+        // --- Event Listeners for Dragging ---
         
-        // Use 'pointerup' as a universal event for mouse clicks and touch taps.
+        // Start drawing when the pointer (mouse or touch) goes down
+        document.addEventListener('pointerdown', (e) => {
+            if (e.isPrimary) {
+                isDrawing = true;
+                // Capture the pointer to ensure moves are tracked smoothly
+                document.body.setPointerCapture(e.pointerId); 
+                // Create the first effect immediately
+                createEffect(e.clientX, e.clientY);
+            }
+        });
+
+        // Continue drawing while the pointer moves and is held down
+        document.addEventListener('pointermove', (e) => {
+            if (isDrawing && e.isPrimary) {
+                const currentTime = Date.now();
+                // Throttle the calls to prevent creating thousands of elements too fast
+                if (currentTime - lastEffectTime > throttleDelay) {
+                    createEffect(e.clientX, e.clientY);
+                    lastEffectTime = currentTime;
+                }
+            }
+        });
+
+        // Stop drawing when the pointer is released
         document.addEventListener('pointerup', (e) => {
             if (e.isPrimary) {
-                createEffect(e.clientX, e.clientY);
+                isDrawing = false;
+                document.body.releasePointerCapture(e.pointerId);
             }
         });
 
